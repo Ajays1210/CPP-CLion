@@ -1,15 +1,20 @@
 #include <iostream>
-#include<ctime>
+#include <ctime>
 #include <random>
+#include <string>
 
 using std::cout;
 using std::cin;
 using std::endl;
+using std::string;
 
 int main() {
     int playerChoice {0};
     int computerChoice {0};
     char playAgain;
+    string option1, option2;
+
+    srand(time(0));
 
     do {
         cout << "Welcome to Rock, Paper, Scissors game!" << endl;
@@ -22,8 +27,24 @@ int main() {
             }
         }while(playerChoice < 1 || playerChoice > 3);
 
+        if(playerChoice == 1) {
+            option1 = "Rock";
+        } else if(playerChoice == 2) {
+            option1 = "Paper";
+        } else {
+            option1 = "Scissors";
+        }
+        cout << "You choose " << option1 << endl;
+
         computerChoice = rand() % 3 + 1;
-        cout << "Computer choose: " << computerChoice << endl;
+        if(computerChoice == 1) {
+            option2 = "Rock";
+        } else if(computerChoice == 2) {
+            option2 = "Paper";
+        } else {
+            option2 = "Scissors";
+        }
+        cout << "Computer choose: " << option2 << endl;
 
         if(playerChoice == computerChoice) {
             cout << "It's a TIE!" << endl;
