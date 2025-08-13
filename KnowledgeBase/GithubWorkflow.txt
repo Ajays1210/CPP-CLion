@@ -1,0 +1,60 @@
+1. Make Your Changes 📝
+This is the most important step! You'll be working on your C++ code, adding new files, modifying existing ones, and so on.
+
+2. Check the Status of Your Changes 👀
+Before you do anything else, run the git status command. This will show you exactly which files you've modified, which are new and "untracked," and which are staged for a commit. This is your reality check.
+
+3. Stage Your Changes for a Commit ✅
+When you're happy with a set of changes and want to save them together as a single snapshot, you need to stage them.
+
+git add .
+
+The . in this command tells Git to add all new and modified files in your current directory and its subdirectories. This is a very common and efficient way to stage everything at once.
+
+4. Create a Commit 💾
+Once your changes are staged, you can create a commit. A commit is a permanent snapshot of your staged files in your local repository.
+
+git commit -m "Your descriptive commit message here"
+
+The -m flag lets you write a short, descriptive message directly in the command. Your message should be a brief summary of what you did in this commit. For example, "Added new function for calculating CGPA" or "Fixed a bug in the main loop."
+
+5. Push Your Changes to GitHub 🚀
+This is the final step to share your work with the world (or just yourself on another computer).
+
+git push
+
+Because you have already configured the remote, Git knows exactly where to send your changes. It will take all the commits you made locally and upload them to your GitHub repository.
+
+A Note on Best Practices 💡
+Commit Often: It's better to have many small, meaningful commits than one giant commit at the end of the day. This makes it easier to track your progress and revert changes if something goes wrong.
+
+Check git status regularly: It's a great habit to run git status frequently to keep track of your changes.
+
+Create a good .gitignore: You've already done this! A good .gitignore file prevents you from accidentally adding temporary files, build files, and other unnecessary items to your repository. This keeps your repository clean and focused on your source code.
+
+################################################################################################################################################
+
+Essential Git Commands
+Here are the most common Git commands you'll use, along with what they do.
+
+1. git status
+This command is your best friend. It shows you the current state of your repository. It will tell you which files have been modified, which are new and not yet being tracked, and which are ready to be committed.
+
+2. git add <file_name>
+This is how you tell Git to start tracking a new file or stage changes for an existing file.
+
+git add main.cpp: This adds only your main.cpp file to the staging area.
+
+git add .: This is a shortcut to add all new and modified files in the current directory and its subdirectories. Use this with caution, as it will add everything, including temporary files.
+
+3. git commit -m "Your commit message"
+This command creates a snapshot of the files that are currently in your staging area.
+
+-m stands for "message." The text inside the quotes is your commit message. It's a required part of the command and should be a short, clear description of the changes you made.
+
+4. git push
+This is what you use to send your committed changes from your local computer to your GitHub repository.
+
+The first time you push, you'll need to link your local branch to the remote one. The terminal will often give you the exact command to use, which looks something like git push --set-upstream origin main. After that, you can just use git push.
+
+################################################################################################################################################

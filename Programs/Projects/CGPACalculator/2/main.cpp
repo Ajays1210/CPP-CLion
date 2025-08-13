@@ -7,12 +7,24 @@ using std::endl;
 using std::vector;
 
 class Course {
-public:
+private:
     int creditHours;
     double gradePoint;
 
+public:
     Course(int cHVal, double gPVal);
+
+    int getCreditHours() const;
+    double getGradePoint() const;
 };
+
+int Course::getCreditHours() const{
+    return creditHours;
+}
+
+double Course::getGradePoint() const {
+    return gradePoint;
+}
 
 Course::Course(int cHVal, double gPVal)
     :creditHours(cHVal), gradePoint(gPVal) {
@@ -37,8 +49,8 @@ int main() {
     }
 
     for(auto obj : courseObj) {
-        totalCreditHours += obj.creditHours;
-        totalGradePoint += (obj.creditHours * obj.gradePoint);
+        totalCreditHours += obj.getCreditHours();
+        totalGradePoint += (obj.getCreditHours() * obj.getGradePoint());
     }
     if(totalCreditHours == 0) {
         cout << "No courses to calculate!";
