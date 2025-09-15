@@ -44,7 +44,7 @@ int main() {
     Deep obj1(100);
     display(obj1);
     Deep obj2(obj1);
-    obj2.setData(100);
+    obj2.setData(200);
 
     display(obj2);
 
