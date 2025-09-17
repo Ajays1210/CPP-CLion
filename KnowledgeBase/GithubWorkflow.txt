@@ -58,3 +58,50 @@ This is what you use to send your committed changes from your local computer to 
 The first time you push, you'll need to link your local branch to the remote one. The terminal will often give you the exact command to use, which looks something like git push --set-upstream origin main. After that, you can just use git push.
 
 ################################################################################################################################################
+
+Git Branching
+A branch is essentially a lightweight, movable pointer to a snapshot of your project. When you create a new branch, you are not making a full copy of your project; you are just creating a new pointer that you can move around as you make changes.
+
+git branch <branch-name>: This command creates a new branch, but you remain on your current branch.
+
+git checkout <branch-name>: This command switches you to the specified branch. All changes you make from now on will be on this new branch, leaving the original branch unchanged.
+
+git checkout -b <new-branch-name>: This is a convenient shortcut that both creates a new branch and immediately switches to it.
+
+Branches are used to isolate your work. For example, you can create a new branch for a new feature you're working on. This way, if you introduce a bug, it won't affect the main, stable version of the code.
+
+################################################################################################################################################
+
+Git Merging
+Merging is the process of combining a set of changes from one branch into another. When you are finished working on a feature branch, you will want to merge your changes back into the main branch.
+
+git merge <branch-to-merge-in>: This command integrates the changes from the specified branch into your current branch.
+
+First, make sure you are on the branch you want to merge into (e.g., main). Use git checkout main.
+
+Then, run the merge command to bring in the changes from your feature branch. For example, git merge feature-x.
+
+There are two main types of merges:
+
+Fast-Forward Merge: This happens when the branch you are merging into has not had any new commits since you created your feature branch. Git simply moves the pointer of the main branch forward to the tip of your feature branch.
+
+Three-Way Merge: This is a more common scenario where both your main branch and your feature branch have new commits. Git creates a new "merge commit" that combines the changes from both branches. This is where merge conflicts can occur.
+
+################################################################################################################################################
+
+A Simple Workflow
+Here's a common workflow using these commands:
+
+Start on your main branch: git checkout main
+
+Pull the latest changes to ensure you're up to date: git pull origin main
+
+Create a new branch for your feature: git checkout -b new-feature
+
+Make your changes and commit them: git add ., then git commit -m "added new feature"
+
+Switch back to the main branch: git checkout main
+
+Merge your feature branch into the main branch: git merge new-feature
+
+Delete the now-merged feature branch (optional but good practice): git branch -d new-feature
