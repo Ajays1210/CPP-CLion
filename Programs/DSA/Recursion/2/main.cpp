@@ -13,14 +13,6 @@ void print(int i, int n) {
     cout << i;
     print(i+1, n);
 }
-//Backtracking
-void print(int n) {
-    if (n == 0) {
-        return;
-    }
-    print(n - 1);
-    cout << n;
-}
 
 void printRev(int i, int n) {
     if (i < 1) {
@@ -30,11 +22,12 @@ void printRev(int i, int n) {
     printRev(i-1, n);
 }
 
+//Backtracking
 void printRev(int n) {
     if (n < 1) {
         return;
     }
-    cout << n;
+    cout << n << " ";
     printRev(n-1);
 }
 
@@ -43,7 +36,7 @@ int main() {
 
     print(1, n);
     cout << endl;
-    print(n);           //Backtracking
+    print(1, n);           //Backtracking
     cout << endl;
     printRev(5, n);
     cout << endl;
