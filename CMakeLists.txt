@@ -23,7 +23,9 @@ foreach(main_file ${MAIN_SOURCES})
             Programs/ObjectOrientedProgramming/ImplementingMethods/Example3/person.cpp
             Programs/ObjectOrientedProgramming/ImplementingMethods/Example3/person.h
             Programs/ObjectOrientedProgramming/ImplementingMethods/Example4/example.cpp
-            Programs/ObjectOrientedProgramming/ImplementingMethods/Example4/example.h)
+            Programs/ObjectOrientedProgramming/ImplementingMethods/Example4/example.h
+            Programs/Projects/Tetris/tetrisGame.cpp
+            Programs/Projects/Tetris/tetrisGame.h)
     target_include_directories(${target_name} PRIVATE ${example_dir})
 
     message("Added target: ${target_name} (from ${example_dir})")

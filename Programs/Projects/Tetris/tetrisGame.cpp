@@ -1,8 +1,9 @@
 #include "tetrisGame.h"
 #include <cstdlib>
 
-const int BOARD_WIDTH = 10;
-const int BOARD_HEIGHT = 20;
+using std::cout;
+using std::endl;
+
 int GAME_BOARD[BOARD_HEIGHT][BOARD_WIDTH];
 
 int CurrentY = -2;
