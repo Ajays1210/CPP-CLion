@@ -5,24 +5,22 @@
 #ifndef TETRISGAME_H
 #define TETRISGAME_H
 
-#include <iostream>
-
-const int BOARD_WIDTH = 10;
-const int BOARD_HEIGHT = 20;
-extern int GAME_BOARD[20][10];
+constexpr int BOARD_WIDTH = 10;
+constexpr int BOARD_HEIGHT = 20;
+extern int GAME_BOARD[BOARD_HEIGHT][BOARD_WIDTH];
 
 extern int CurrentY;
 extern int CurrentX;
 
-extern int IPiece[4][4];
-extern int OPiece[4][4];
-extern int TPiece[4][4];
-extern int JPiece[4][4];
-extern int LPiece[4][4];
-extern int SPiece[4][4];
-extern int ZPiece[4][4];
+extern int Score;
+extern int CurrentPieceId;
+extern int ActivePiece[4][4];
+extern int RotationState;
 
-bool CheckCollision(int n_y, int n_x);
 void DrawScreen();
+bool CheckCollision(int n_y, int n_x);
+void RotatePiece();
+int GetRandomPieceID();
+void CopyActivePiece(int pieceID);
 
 #endif //TETRISGAME_H
