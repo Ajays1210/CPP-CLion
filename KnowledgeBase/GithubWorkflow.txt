@@ -105,3 +105,8 @@ Switch back to the main branch: git checkout main
 Merge your feature branch into the main branch: git merge new-feature
 
 Delete the now-merged feature branch (optional but good practice): git branch -d new-feature
+
+##############################################################################################################
+Command,Purpose
+git status,(Optional) Check that your working directory is clean (no uncommitted changes).
+git checkout -b new-feature-name,"Creates a new branch named new-feature-name (e.g., fix-lag) and switches your working code to it instantly."
