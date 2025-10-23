@@ -17,6 +17,10 @@ extern int CurrentPieceId;
 extern int ActivePiece[4][4];
 extern int RotationState;
 
+extern int NextPieceId;
+extern int LinesCleared;
+extern int Level;
+
 void DrawScreen();
 bool CheckCollision(int n_y, int n_x);
 void RotatePiece();

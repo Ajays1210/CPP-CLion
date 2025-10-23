@@ -10,14 +10,16 @@ using std::endl;
 
 int GAME_BOARD[BOARD_HEIGHT][BOARD_WIDTH];
 
-int CurrentY = -2;
+int CurrentY = 0;
 int CurrentX = (BOARD_WIDTH / 2) - 2;
 
 int Score = 0;
 int CurrentPieceId = 0;
 int RotationState = 0;
-
 int ActivePiece[4][4];
+int NextPieceId = 0;
+int LinesCleared = 0;
+int Level = 0;
 
 int AllShapes[7][4][4] {
     // 0: I-Piece
@@ -102,11 +104,41 @@ void DrawScreen() {
            }
        }
        cout <<"!>";
-       cout << endl;
+
+        if (y == 0) {
+            cout << "   LINES CLEARED: " << LinesCleared;
+        } else if (y == 1) {
+            cout << "   LEVEL': " << Level;
+        } else if (y == 2) {
+            cout << "   SCORE: " << Score;
+        } else if (y >= 4 && y <= 8) {
+            int py = y - 4;
+
+            if (py >= 0 && py < 4) {
+                cout << "      ";
+                for (int px = 0; px < 4; ++px) {
+                    if (AllShapes[NextPieceId][py][px] == 1) {
+                        cout << "[]";
+                    } else {
+                        cout << "  ";
+                    }
+                }
+            }
+        } else if (y == 10) {
+            cout << "   A: LEFT";
+        } else if (y == 11) {
+            cout << "   D: RIGHT";
+        } else if (y == 12) {
+            cout << "   W: ROTATE";
+        } else if (y == 13) {
+            cout << "   S: SOFT DROP";
+        } else if (y == 14) {
+            cout << "   SPACE: HARD DROP";
+        }
+        cout << endl;
     }
     cout << "<!====================!>" << endl;
     cout << R"(  \/\/\/\/\/\/\/\/\/\/)" << endl;
-    cout << "\nScore: " << Score << endl;
 }
 
 bool CheckCollision(int n_y, int n_x) {
@@ -208,6 +240,7 @@ void LockPieceAndContinueGame(bool & bGameOver) {
     // Line Clearing Logic
     for (int y{BOARD_HEIGHT - 1}; y >= 0; --y) {
         bool bLineFull = true;
+
         for (int x{0}; x < BOARD_WIDTH; ++x) {
             if (GAME_BOARD[y][x] == 0) {
                 bLineFull = false;
@@ -224,13 +257,16 @@ void LockPieceAndContinueGame(bool & bGameOver) {
                 GAME_BOARD[0][x] = 0;
             }
             Score += 10;
+            ++LinesCleared;
             ++y;
         }
     }
-    CurrentPieceId = GetRandomPieceID();
+    CurrentPieceId = NextPieceId;
     CopyActivePiece(CurrentPieceId);
 
-    CurrentY = -2;
+    NextPieceId = GetRandomPieceID();
+
+    CurrentY = 0;
     CurrentX = (BOARD_WIDTH / 2) - 2;
 
     if (CheckCollision(CurrentY, CurrentX)) {

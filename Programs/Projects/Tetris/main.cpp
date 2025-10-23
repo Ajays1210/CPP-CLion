@@ -8,10 +8,12 @@
 
 using std::cout;
 using std:: endl;
+using Clock = std::chrono::high_resolution_clock;
 
 int main() {
     srand(time(0));
 
+    bool bGameStarted {false};
     bool bGameOver {false};
     //Accessing [ROW][COLUMN] = Mathematically y for height & x for width
     for (int y{0}; y < BOARD_HEIGHT; ++y) {
@@ -21,12 +23,23 @@ int main() {
     }
     CurrentPieceId = GetRandomPieceID();
     CopyActivePiece(CurrentPieceId);
-    CurrentY = -2;
+    NextPieceId = GetRandomPieceID();
+
+    CurrentY = 0;
     CurrentX = (BOARD_WIDTH / 2) - 2;
 
     DrawScreen();
 
-    while (!bGameOver) {
+    while (!bGameStarted) {
+        system("cls");
+        cout << endl << endl << endl;
+        cout << "           T E T R I S" << endl;
+        cout << "           R25 - C++ Console" << endl;
+        cout << endl << endl;
+
+        cout << "   Controls: A/D/S (Move), W (Rotate), SPACE (Drop)" << endl;
+        cout << endl << "           P R E S S   A N Y   K E Y   T O   S T A R T. . ." << endl;
+
         for (int i{0}; i < 10; ++i) {
             if (_kbhit()) {
                 char key = _getch();
