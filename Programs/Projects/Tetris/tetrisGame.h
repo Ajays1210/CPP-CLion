@@ -22,5 +22,6 @@ bool CheckCollision(int n_y, int n_x);
 void RotatePiece();
 int GetRandomPieceID();
 void CopyActivePiece(int pieceID);
+void LockPieceAndContinueGame(bool & bGameOver);
 
 #endif //TETRISGAME_H
