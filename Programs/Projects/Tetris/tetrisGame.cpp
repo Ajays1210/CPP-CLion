@@ -30,6 +30,9 @@ long long TimeUntilNextMove = 0;
 bool bLineClearing = false;
 std::vector<int> ClearedLines;
 
+// New: Piece Bag for 7-Bag randomizer system. It holds the remaining piece IDs for the current cycle.
+std::vector<int> PieceBag;
+
 // All the 7 standard Tetris shapes (I, J, L, O, S, T, Z) defined as 4x4 blocks.
 int AllShapes[7][4][4] {
     // 0: I-Piece (Line)
@@ -289,10 +292,36 @@ void RotatePiece() {
 }
 
 /**
- * @brief Returns a random piece ID (0 through 6).
+ * @brief Shuffles the piece ID integers in the PieceBag using the Fisher-Yates shuffle algorithm.
+ */
+void ShuffleBag() {
+    for (int i = PieceBag.size() - 1; i > 0; --i) {
+        // Generate a random index 'j' between 0 and i (inclusive)
+        // This is a simple implementation of a shuffle algorithm.
+        int j = rand() % (i + 1);
+
+        // Swap PieceBag[i] with the element at the random index j
+        int temp = PieceBag[i];
+        PieceBag[i] = PieceBag[j];
+        PieceBag[j] = temp;
+    }
+}
+
+/**
+ * @brief Returns the next piece ID using the 7-Bag Randomizer system for fair distribution.
  */
 int GetRandomPieceID() {
-    return rand() % 7;
+    // If the bag is empty, refill it with one of each of the 7 pieces (0-6) and shuffle.
+    if (PieceBag.empty()) {
+        PieceBag = {0, 1, 2, 3, 4, 5, 6}; // The 7 piece IDs
+        ShuffleBag();
+    }
+
+    // Take the last element from the bag
+    int nextId = PieceBag.back();
+    PieceBag.pop_back();
+
+    return nextId;
 }
 
 /**
@@ -347,6 +376,7 @@ void LockPieceAndContinueGame(bool & bGameOver) {
         CurrentPieceId = NextPieceId;
         CopyActivePiece(CurrentPieceId);
 
+        // *** Use the new 7-Bag randomizer to determine the next piece
         NextPieceId = GetRandomPieceID();
 
         // Spawn position: Y=-2 for the crucial game-over buffer
@@ -412,6 +442,7 @@ void PerformLineDeletionAndScoring(bool & bGameOver) {
     CurrentPieceId = NextPieceId;
     CopyActivePiece(CurrentPieceId);
 
+    // *** Use the new 7-Bag randomizer to determine the next piece
     NextPieceId = GetRandomPieceID();
 
     // Spawn position: Y=-2 for the crucial game-over buffer
