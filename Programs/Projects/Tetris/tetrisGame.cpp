@@ -395,66 +395,66 @@ void LockPieceAndContinueGame(bool & bGameOver) {
  * @param bGameOver Reference to the main game over flag.
  */
 void PerformLineDeletionAndScoring(bool & bGameOver) {
-    int lines_deleted_count = 0;
 
-    // 1. Delete and Shift Lines
-    for (int y_to_clear : ClearedLines) {
-        // Shift all rows above the cleared row down by one
-        for (int k{y_to_clear}; k > 0; --k ) {
-            for (int x{0}; x < BOARD_WIDTH; ++x) {
-                GAME_BOARD[k][x] = GAME_BOARD[k-1][x];
+    int lines_cleared_count = ClearedLines.size();
+
+    int target_row = BOARD_HEIGHT - 1;
+
+    for (int source_row = BOARD_HEIGHT - 1; source_row >= 0; --source_row) {
+
+        bool is_full = false;
+
+        for (int cleared_y : ClearedLines) {
+            if (cleared_y == source_row) {
+                is_full = true;
+                break;
             }
         }
 
-        // Make sure the top row (row 0) is now empty
-        for (int x{0}; x < BOARD_WIDTH; ++x) {
-            GAME_BOARD[0][x] = 0;
-        }
+        if (!is_full) {
 
-        lines_deleted_count++;
+            for (int x = 0; x < BOARD_WIDTH; ++x) {
+                GAME_BOARD[target_row][x] = GAME_BOARD[source_row][x];
+            }
+            target_row--;
+        }
     }
 
-    // 2. Scoring Update
-    if (lines_deleted_count > 0) {
-        // Simple scoring: 10 points per line cleared
-        Score += 10 * lines_deleted_count;
-        LinesCleared += lines_deleted_count;
+    while (target_row >= 0) {
+        for (int x = 0; x < BOARD_WIDTH; ++x) {
+            GAME_BOARD[target_row][x] = 0;
+        }
+        target_row--;
+    }
 
-        // --- LEVEL LOGIC IMPLEMENTATION (Lines cleared increases level, which increases speed) ---
-        // Level up every 10 lines cleared.
+    if (lines_cleared_count > 0) {
+
+        Score += 10 * lines_cleared_count;
+        LinesCleared += lines_cleared_count;
+
         if (LinesCleared / 10 > Level) {
             Level = LinesCleared / 10;
 
-            // Calculate new, faster fall rate: Base (1000ms) - (Level * 100ms)
             long long new_fall_rate = FALL_RATE_MS - (Level * 100);
 
-            // Cap the speed to ensure it's not too fast (e.g., minimum 100ms)
             if (new_fall_rate < 100) {
                 new_fall_rate = 100;
             }
-
-            // Update the global fall timer to the new speed
             TimeUntilNextFall = new_fall_rate;
         }
     }
-
-    // 3. Spawn the Next Piece (since line clearing is done)
     CurrentPieceId = NextPieceId;
     CopyActivePiece(CurrentPieceId);
 
-    // *** Use the new 7-Bag randomizer to determine the next piece
     NextPieceId = GetRandomPieceID();
 
-    // Spawn position: Y=-2 for the crucial game-over buffer
     CurrentY = -2;
     CurrentX = (BOARD_WIDTH / 2) - 2;
 
-    // Final check for Game Over
+
     if (CheckCollision(CurrentY, CurrentX)) {
         bGameOver = true;
     }
-
-    // 4. Reset flow control flags
     bLineClearing = false;
     ClearedLines.clear();
 }
