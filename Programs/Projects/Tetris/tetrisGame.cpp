@@ -2,9 +2,6 @@
 #include <cstdlib>
 #include <iostream>
 
-#define CONSOLE_WIDTH 80
-#define DISPLAY_WIDTH 44
-
 using std::cout;
 using std::endl;
 
