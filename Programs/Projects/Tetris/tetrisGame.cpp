@@ -1,173 +1,185 @@
 #include "tetrisGame.h"
-#include <cstdlib>
-#include <iostream>
-#include <vector>
-
-// Note: These definitions were mainly for screen alignment, but we don't use them in the C++ logic.
-#define CONSOLE_WIDTH 80
-#define DISPLAY_WIDTH 44
+#include <cstdlib>      // For system("cls")
+#include <iostream>     // For console output
+#include <cstring>      // For memcpy (efficient array copy)
+#include <algorithm>    // For std::all_of, std::find, std::copy
 
 using std::cout;
 using std::endl;
 using std::vector;
 
-// === GLOBAL VARIABLE DEFINITIONS ===
-// These variables are declared as 'extern' in the header and defined here.
-int GAME_BOARD[BOARD_HEIGHT][BOARD_WIDTH];
+// --- Static Data Definitions (Defined once for the class) ---
 
-int CurrentY = -2; // Start pieces off the screen to give the player a buffer.
-int CurrentX = (BOARD_WIDTH / 2) - 2; // Start pieces roughly centered.
-
-int Score = 0;
-int CurrentPieceId = 0;
-int RotationState = 0;
-int ActivePiece[4][4];
-int NextPieceId = 0;
-int LinesCleared = 0;
-int Level = 0;
-long long TimeUntilNextFall = FALL_RATE_MS;
-long long TimeUntilNextMove = 0;
-bool bLineClearing = false;
-std::vector<int> ClearedLines;
-
-// New: Piece Bag for 7-Bag randomizer system. It holds the remaining piece IDs for the current cycle.
-std::vector<int> PieceBag;
-
-// All the 7 standard Tetris shapes (I, J, L, O, S, T, Z) defined as 4x4 blocks.
-int AllShapes[7][4][4] {
-    // 0: I-Piece (Line)
-    {{0,0,0,0},
-     {0,0,0,0},
-     {1,1,1,1},
-     {0,0,0,0} },
-    // 1: J-Piece
-    {{0,0,0,0},
-     {1,0,0,0},
-     {1,1,1,0},
-     {0,0,0,0} },
-    // 2: L-Piece
-    {{0,0,0,0},
-     {0,0,1,0},
-     {1,1,1,0},
-     {0,0,0,0} },
-    // 3: O-Piece (Square) - Does not rotate using standard methods
-    {{0,0,0,0},
-     {0,1,1,0},
-     {0,1,1,0},
-     {0,0,0,0} },
-    // 4: S-Piece
-    {{0,0,0,0},
-     {0,1,1,0},
-     {1,1,0,0},
-     {0,0,0,0} },
-    // 5: T-Piece
-    {{0,0,0,0},
-     {0,1,0,0},
-     {1,1,1,0},
-     {0,0,0,0} },
-    // 6: Z-Piece
-    {{0,0,0,0},
-     {1,1,0,0},
-     {0,1,1,0},
-     {0,0,0,0} }
+const int TetrisGame::AllShapes[NUM_PIECES][4][4] {
+    // PieceType::I (0)
+    {{0,0,0,0}, {0,0,0,0}, {1,1,1,1}, {0,0,0,0} },
+    // PieceType::J (1)
+    {{0,0,0,0}, {1,0,0,0}, {1,1,1,0}, {0,0,0,0} },
+    // PieceType::L (2)
+    {{0,0,0,0}, {0,0,1,0}, {1,1,1,0}, {0,0,0,0} },
+    // PieceType::O (3)
+    {{0,0,0,0}, {0,1,1,0}, {0,1,1,0}, {0,0,0,0} },
+    // PieceType::S (4)
+    {{0,0,0,0}, {0,1,1,0}, {1,1,0,0}, {0,0,0,0} },
+    // PieceType::T (5)
+    {{0,0,0,0}, {0,1,0,0}, {1,1,1,0}, {0,0,0,0} },
+    // PieceType::Z (6)
+    {{0,0,0,0}, {1,1,0,0}, {0,1,1,0}, {0,0,0,0} }
 };
 
-// These are the offset tests used for the Super Rotation System (SRS) "Wall Kick" feature.
-// This allows pieces to rotate even if they are next to a wall or another block.
-const int WallKickTests[5][2] = {
-    {0, 0},   // Test 0: No shift (just try the rotation)
-    {+1, 0},  // Test 1: Try shifting 1 unit right
-    {-1, 0},  // Test 2: Try shifting 1 unit left
-    {+2, 0},  // Test 3: Try shifting 2 units right (mostly for the I-Piece)
-    {-2, 0}   // Test 4: Try shifting 2 units left (mostly for the I-Piece)
+// Standard Super Rotation System (SRS) Wall Kick Tests (simple subset)
+const int TetrisGame::WallKickTests[5][2] = {
+    {0, 0}, {+1, 0}, {-1, 0}, {+2, 0}, {-2, 0}
 };
 
-// === FUNCTION DEFINITIONS ===
+// --- Constructor (RAII Principle for Randomness) ---
+/**
+ * @brief Initializes the game board and sets up the random number generator.
+ */
+TetrisGame::TetrisGame() {
+    // MODERN C++: Use std::random_device for a non-deterministic seed (RAII).
+    std::random_device rd;
+    randomEngine.seed(rd());
+
+    // Initialize the game board to all zeros
+    for (int y = 0; y < BOARD_HEIGHT; ++y) {
+        // STL: Use std::fill for clean array initialization.
+        std::fill(gameBoard[y], gameBoard[y] + BOARD_WIDTH, 0);
+    }
+
+    // Initial piece spawn setup
+    nextPieceId = getRandomPieceID();
+    currentPieceId = getRandomPieceID();
+    copyActivePiece(currentPieceId);
+}
+
+// --- Private Helper Methods Implementation ---
+
+/**
+ * @brief Shuffles the piece ID integers in the PieceBag using a modern, reliable engine.
+ * Demonstrates use of C++ <random> and std::shuffle.
+ */
+void TetrisGame::shuffleBag() {
+    // MODERN C++: Use std::shuffle with the member random engine (std::mt19937)
+    std::shuffle(pieceBag.begin(), pieceBag.end(), randomEngine);
+}
+
+/**
+ * @brief Returns the next piece ID using the 7-Bag Randomizer system.
+ */
+PieceType TetrisGame::getRandomPieceID() {
+    if (pieceBag.empty()) {
+        // Fill the bag with all 7 PieceType enums (7-Bag system)
+        pieceBag.push_back(PieceType::I);
+        pieceBag.push_back(PieceType::J);
+        pieceBag.push_back(PieceType::L);
+        pieceBag.push_back(PieceType::O);
+        pieceBag.push_back(PieceType::S);
+        pieceBag.push_back(PieceType::T);
+        pieceBag.push_back(PieceType::Z);
+        shuffleBag();
+    }
+
+    PieceType nextId = pieceBag.back();
+    pieceBag.pop_back();
+    return nextId;
+}
+
+/**
+ * @brief Copies the shape data for the given pieceID into the activePiece array.
+ */
+void TetrisGame::copyActivePiece(const PieceType pieceID) {
+    // Convert enum class back to int index for array access
+    int index = static_cast<int>(pieceID);
+    for (int y{0}; y < 4; ++y) {
+        for (int x{0}; x < 4; ++x) {
+            activePiece[y][x] = AllShapes[index][y][x];
+        }
+    }
+    rotationState = 0; // Reset rotation state on new piece spawn
+}
+
+// === Public Methods Implementation ===
 
 /**
  * @brief Clears the console and draws the entire game state.
- * This includes the main board, the active piece, the side panel (score, next piece), and walls.
  */
-void DrawScreen() {
+void TetrisGame::drawScreen() {
+    // Static counter for line-clearing blink animation
+    // Static variables persist across function calls, essential for animation state.
     static int blinkCounter = 0;
-    system("cls"); // Clear the console for a fresh draw
+    system("cls"); // Clears the command line screen (Windows specific)
 
     for (int y{0}; y < BOARD_HEIGHT; ++y) {
-        cout << "<!"; // Draw the Left Wall
+        cout << "<!";
 
-        // 1. DETERMINE IF CURRENT ROW IS BLINKING (for line clear animation)
+        // Check if the current row is marked for blinking/clearing
         bool isBlinkingLine = false;
         if (bLineClearing) {
-            for (int lineY : ClearedLines) {
-                if (lineY == y) {
-                    isBlinkingLine = true;
-                    break;
-                }
-            }
+            // STL: std::find checks for existence of 'y' in the clearedLines vector
+            isBlinkingLine = std::find(clearedLines.begin(), clearedLines.end(), y) != clearedLines.end();
         }
 
-        // 2. INNER LOOP: DRAW COLUMNS (x-axis)
         for (int x{0}; x < BOARD_WIDTH; ++x) {
 
-            // Priority 1: BLINKING LINE (The line disappears/reappears during animation)
+            // Priority 1: LINE BLINK ANIMATION
             if (isBlinkingLine) {
-                if (blinkCounter % 2 == 0) {
-                    cout << "##"; // Blink Frame 1: Solid block
-                } else {
-                    cout << "  "; // Blink Frame 2: Empty space
-                }
+                // Blink effect: On the "on" frame (even counter), show a solid hash block '##'.
+                // The '##' is repeated for every block across the line, forming the visual hash line.
+                cout << (blinkCounter % 2 == 0 ? "##" : "  ");
             }
-            // Priority 2: LOCKED BLOCK (A piece that has landed)
-            else if (GAME_BOARD[y][x] == 1) {
+            // Priority 2: LOCKED BLOCK
+            else if (gameBoard[y][x] == 1) {
                cout << "[]";
             }
             // Priority 3: ACTIVE PIECE OR EMPTY SPACE
             else {
                 bool isPieceBlock = false;
 
-                // Check every block of the 4x4 active piece array
+                // Check if the active piece occupies this spot
                 for (int py{0}; py < 4; ++py) {
                     for (int px{0}; px < 4; ++px) {
-                        if (ActivePiece[py][px] == 1) {
-                           int y_on_board = CurrentY + py;
-                           int x_on_board = CurrentX + px;
+                        if (activePiece[py][px] == 1) {
+                           int y_on_board = currentY + py;
+                           int x_on_board = currentX + px;
 
-                           // If the active piece block is on the current board spot (y, x)
                            if (y == y_on_board && x == x_on_board) {
                                isPieceBlock = true;
-                               goto end_piece_check; // Found it, jump out of the nested loops
+                               break; // Break inner (px) loop
                            }
                         }
                     }
+                    if (isPieceBlock) break; // Break outer (py) loop
                 }
-                end_piece_check:;
 
                 if (isPieceBlock) {
-                    cout << "[]"; // Draw the active piece block
+                    cout << "[]";
                 } else {
-                    cout << " ."; // Draw an empty space/dot
+                    cout << " .";
                 }
             }
         }
 
         // 3. RIGHT WALL AND SIDE PANEL
-        cout << "!>"; // Draw the Right Wall
+        cout << "!>";
 
         // Draw the information panel to the side of the board
+        int nextIdIndex = static_cast<int>(nextPieceId);
+
         if (y == 0) {
-            cout << "   LINES CLEARED: " << LinesCleared;
+            cout << "   LINES CLEARED: " << linesCleared;
         } else if (y == 1) {
-            cout << "   LEVEL: " << Level;
+            cout << "   LEVEL: " << level;
         } else if (y == 2) {
-            cout << "   SCORE: " << Score;
+            cout << "   SCORE: " << score;
         } else if (y >= 4 && y <= 8) {
             // Draw the "Next Piece" preview
-            int py = y - 4; // Adjust y to fit into the 4x4 piece array
+            int py = y - 4;
 
             if (py >= 0 && py < 4) {
                 cout << "      ";
                 for (int px = 0; px < 4; ++px) {
-                    if (AllShapes[NextPieceId][py][px] == 1) {
+                    if (AllShapes[nextIdIndex][py][px] == 1) {
                         cout << "[]";
                     } else {
                         cout << "  ";
@@ -189,38 +201,34 @@ void DrawScreen() {
         } else if (y == 14) {
             cout << "       SPACE: HARD DROP";
         }
-        cout << endl; // End the console line (for the current row)
+        cout << endl;
     }
 
-    // 4. ANIMATION COUNTER & BOTTOM BORDER
+    // Increment the counter only when line clearing is active
     if (bLineClearing) {
-        blinkCounter++; // Only increment during line clear animation
+        blinkCounter++;
     }
 
-    cout << "<!====================!>" << endl; // Bottom border
-    cout << R"(  \/\/\/\/\/\/\/\/\/\/)" << endl; // Decorative base
+    cout << "<!====================!>" << endl;
+    cout << R"(  \/\/\/\/\/\/\/\/\/\/)" << endl;
 }
 
 /**
  * @brief Checks if the active piece collides with anything at a proposed new location (n_y, n_x).
- * @param n_y The proposed new Y position.
- * @param n_x The proposed new X position.
- * @return True if a collision occurs (wall or locked block), false otherwise.
  */
-bool CheckCollision(int n_y, int n_x) {
+bool TetrisGame::checkCollision(int n_y, int n_x) {
     for (int py{0}; py < 4; ++py) {
         for (int px{0}; px < 4; ++px) {
-            if (ActivePiece[py][px] == 1) { // Only check if there's an actual block in the piece
+            if (activePiece[py][px] == 1) {
                 // 1. Check for wall/floor collisions
-                if (n_x + px < 0 ||               // Left Wall
-                    (n_y + py) >= BOARD_HEIGHT || // Floor
-                    n_x + px >= BOARD_WIDTH) {    // Right Wall
+                if (n_x + px < 0 ||
+                    (n_y + py) >= BOARD_HEIGHT ||
+                    n_x + px >= BOARD_WIDTH) {
                     return true;
                 }
-
                 // 2. Check for collision with an already locked block on the game board
-                // We must make sure y is >= 0 before checking GAME_BOARD to prevent out-of-bounds access
-                if (n_y + py >= 0 && GAME_BOARD[n_y +py][n_x + px] == 1) {
+                // Only check board if block is on screen (y >= 0)
+                if (n_y + py >= 0 && n_y + py < BOARD_HEIGHT && gameBoard[n_y +py][n_x + px] == 1) {
                     return true;
                 }
             }
@@ -230,51 +238,76 @@ bool CheckCollision(int n_y, int n_x) {
 }
 
 /**
- * @brief Rotates the active piece 90 degrees clockwise and applies Wall Kick tests.
+ * @brief Moves the current piece by the given delta (dx, dy).
+ * @param dx Change in X position (e.g., -1 for left).
+ * @param dy Change in Y position (e.g., +1 for down).
+ * @return True if the move was successful, false if a collision occurred.
  */
-void RotatePiece() {
-    if (CurrentPieceId == 3) {
-        return; // The Square (O-Piece) doesn't need rotation
+bool TetrisGame::movePiece(int dx, int dy) {
+    int n_x = currentX + dx;
+    int n_y = currentY + dy;
+
+    if (!checkCollision(n_y, n_x)) {
+        currentX = n_x;
+        currentY = n_y;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief Instantly drops the current piece to the lowest possible position and locks it.
+ */
+void TetrisGame::hardDrop(bool &bGameOver) {
+    // Move the piece down repeatedly until a collision is detected.
+    while (movePiece(0, 1)) {
+        // The piece is successfully moved down one step.
     }
 
-    int NextRotationState = (RotationState + 1) % 4;
+    // Once movePiece returns false (collision), lock the piece into the board.
+    lockPieceAndContinueGame(bGameOver);
+}
 
-    int OriginalPiece[4][4];
-    int TempPiece[4][4] { {0} }; // Initialize rotated shape to all zeros
+/**
+ * @brief Rotates the active piece 90 degrees clockwise and applies Wall Kick tests.
+ */
+void TetrisGame::rotatePiece() {
+    // O-Piece (PieceType::O) is static and does not rotate.
+    if (currentPieceId == PieceType::O) {
+        return;
+    }
 
-    // 1. Calculate the Rotated Shape (90 degrees clockwise transformation)
+    int nextRotationState = (rotationState + 1) % 4;
+
+    int originalPiece[4][4];
+    int tempPiece[4][4] { {0} };
+
+    // 1. Calculate the Rotated Shape
     for (int y{0}; y < 4; ++y) {
         for (int x{0}; x < 4; ++x) {
-            OriginalPiece[y][x] = ActivePiece[y][x]; // Save the original shape
-            if (OriginalPiece[y][x] == 1) {
-                int n_py = x;     // New Y comes from old X
-                int n_px = 3 - y; // New X comes from 3 - old Y
-
-                TempPiece[n_py][n_px] = 1;
+            originalPiece[y][x] = activePiece[y][x];
+            if (originalPiece[y][x] == 1) {
+                int n_py = x;
+                int n_px = 3 - y;
+                tempPiece[n_py][n_px] = 1;
             }
         }
     }
 
     // 2. Temporarily apply the rotation for collision testing
-    for (int y{0}; y < 4; ++y) {
-        for (int x{0}; x < 4; ++x) {
-            ActivePiece[y][x] = TempPiece[y][x];
-        }
-    }
+    // Use C-style array copy (memcpy) for efficient, fixed-size 2D array replacement
+    memcpy(activePiece, tempPiece, sizeof(activePiece));
 
-    // 3. Apply Wall Kick Tests
+    // 3. Apply Wall Kick Tests (Super Rotation System - SRS)
     bool bRotationSuccess = false;
+    for (int i{0}; i < 5; ++i) {
+        int TestX = currentX + WallKickTests[i][0];
+        int TestY = currentY + WallKickTests[i][1];
 
-    for (int i{0}; i < 5; ++i) { // Check the 5 defined kick tests
-        int TestX = CurrentX + WallKickTests[i][0];
-        int TestY = CurrentY + WallKickTests[i][1];
-
-        if (CheckCollision(TestY, TestX) == false) {
-            // Found a valid place!
-            CurrentX = TestX;
-            CurrentY = TestY;
-
-            RotationState = NextRotationState;
+        if (checkCollision(TestY, TestX) == false) {
+            currentX = TestX;
+            currentY = TestY;
+            rotationState = nextRotationState;
             bRotationSuccess = true;
             break;
         }
@@ -282,109 +315,52 @@ void RotatePiece() {
 
     // 4. Revert if all tests fail
     if (bRotationSuccess == false) {
-        // Restore the Original Shape if rotation couldn't find a clear spot
-        for (int y{0}; y < 4; ++y) {
-            for (int x{0}; x < 4; ++x) {
-                ActivePiece[y][x] = OriginalPiece[y][x];
-            }
-        }
-    }
-}
-
-/**
- * @brief Shuffles the piece ID integers in the PieceBag using the Fisher-Yates shuffle algorithm.
- */
-void ShuffleBag() {
-    for (int i = PieceBag.size() - 1; i > 0; --i) {
-        // Generate a random index 'j' between 0 and i (inclusive)
-        // This is a simple implementation of a shuffle algorithm.
-        int j = rand() % (i + 1);
-
-        // Swap PieceBag[i] with the element at the random index j
-        int temp = PieceBag[i];
-        PieceBag[i] = PieceBag[j];
-        PieceBag[j] = temp;
-    }
-}
-
-/**
- * @brief Returns the next piece ID using the 7-Bag Randomizer system for fair distribution.
- */
-int GetRandomPieceID() {
-    // If the bag is empty, refill it with one of each of the 7 pieces (0-6) and shuffle.
-    if (PieceBag.empty()) {
-        PieceBag = {0, 1, 2, 3, 4, 5, 6}; // The 7 piece IDs
-        ShuffleBag();
-    }
-
-    // Take the last element from the bag
-    int nextId = PieceBag.back();
-    PieceBag.pop_back();
-
-    return nextId;
-}
-
-/**
- * @brief Copies the shape data for the given pieceID into the ActivePiece array.
- */
-void CopyActivePiece(const int pieceID) {
-    for (int y{0}; y < 4; ++y) {
-        for (int x{0}; x < 4; ++x) {
-            ActivePiece[y][x] = AllShapes[pieceID][y][x];
-        }
+        // Revert to original piece shape
+        memcpy(activePiece, originalPiece, sizeof(originalPiece));
     }
 }
 
 /**
  * @brief Locks the current piece onto the game board, checks for line clears, and spawns the next piece.
- * @param bGameOver Reference to the main game over flag.
  */
-void LockPieceAndContinueGame(bool & bGameOver) {
-    // 1. Lock the piece onto the GAME_BOARD
+void TetrisGame::lockPieceAndContinueGame(bool & bGameOver) {
+    // 1. Lock the piece onto the gameBoard
     for (int py{0}; py < 4; ++py) {
         for (int px{0}; px < 4; ++px) {
-            if (ActivePiece[py][px] == 1) {
-                // Only write to the board if the block is on or below row 0
-                if (CurrentY + py >= 0) {
-                    GAME_BOARD[CurrentY + py][CurrentX + px] = 1;
+            if (activePiece[py][px] == 1) {
+                // Only lock blocks that are visible on the main board (Y >= 0)
+                if (currentY + py >= 0 && currentY + py < BOARD_HEIGHT) {
+                    gameBoard[currentY + py][currentX + px] = 1;
                 }
             }
         }
     }
 
     // 2. Scan for full lines to clear
-    ClearedLines.clear();
+    clearedLines.clear();
     for (int y{BOARD_HEIGHT - 1}; y >= 0; --y) {
-        bool bLineFull = true;
-
-        for (int x{0}; x < BOARD_WIDTH; ++x) {
-            if (GAME_BOARD[y][x] == 0) {
-                bLineFull = false;
-                break;
-            }
-        }
-        if (bLineFull) {
-            ClearedLines.push_back(y);
+        // MODERN C++: std::all_of checks if every block in the row is 1 (filled).
+        if (std::all_of(gameBoard[y], gameBoard[y] + BOARD_WIDTH, [](int block){ return block == 1; })) {
+            clearedLines.push_back(y);
         }
     }
 
     // 3. Determine next step
-    if (!ClearedLines.empty()) {
-        bLineClearing = true; // Start the animation phase
+    if (!clearedLines.empty()) {
+        // Set the flag to true to start the blinking animation
+        bLineClearing = true;
     } else {
-        // No lines cleared, so immediately spawn the next piece.
-        CurrentPieceId = NextPieceId;
-        CopyActivePiece(CurrentPieceId);
+        // No lines cleared, spawn the next piece.
+        currentPieceId = nextPieceId;
+        copyActivePiece(currentPieceId);
 
-        // *** Use the new 7-Bag randomizer to determine the next piece
-        NextPieceId = GetRandomPieceID();
+        nextPieceId = getRandomPieceID();
 
-        // Spawn position: Y=-2 for the crucial game-over buffer
-        CurrentY = -2;
-        CurrentX = (BOARD_WIDTH / 2) - 2;
+        currentY = -2;
+        currentX = (BOARD_WIDTH / 2) - 2;
 
-        // Check for immediate Game Over right after spawning
-        if (CheckCollision(CurrentY, CurrentX)) {
+        // Final check for Game Over
+        if (checkCollision(currentY, currentX)) {
             bGameOver = true;
         }
     }
@@ -392,90 +368,67 @@ void LockPieceAndContinueGame(bool & bGameOver) {
 
 /**
  * @brief Deletes the lines marked for clearing, shifts the board down, updates the score, and spawns the next piece.
- * @param bGameOver Reference to the main game over flag.
  */
-void PerformLineDeletionAndScoring(bool & bGameOver) {
-
-    int lines_cleared_count = ClearedLines.size();
-
+void TetrisGame::performLineDeletionAndScoring(bool & bGameOver) {
+    const int lines_cleared_count = clearedLines.size();
     int target_row = BOARD_HEIGHT - 1;
 
+    // 1. Delete and Shift Lines (Two-pointer approach for robust, multi-line clearing)
     for (int source_row = BOARD_HEIGHT - 1; source_row >= 0; --source_row) {
-
-        bool is_full = false;
-
-        for (int cleared_y : ClearedLines) {
-            if (cleared_y == source_row) {
-                is_full = true;
-                break;
-            }
-        }
+        // STL: Check if the current row is marked for clearing.
+        const bool is_full = std::find(clearedLines.begin(), clearedLines.end(), source_row) != clearedLines.end();
 
         if (!is_full) {
-
-            for (int x = 0; x < BOARD_WIDTH; ++x) {
-                GAME_BOARD[target_row][x] = GAME_BOARD[source_row][x];
-            }
+            // This is a partial line. Copy it down to the target_row.
+            // STL: Use std::copy to move the entire row of data efficiently.
+            std::copy(gameBoard[source_row], gameBoard[source_row] + BOARD_WIDTH, gameBoard[target_row]);
             target_row--;
         }
+        // If it is a full line, we skip it (deleting it) and target_row remains the same.
     }
 
+    // Fill the empty rows created at the top (from row 0 up to target_row) with zeros.
     while (target_row >= 0) {
-        for (int x = 0; x < BOARD_WIDTH; ++x) {
-            GAME_BOARD[target_row][x] = 0;
-        }
+        // STL: Use std::fill to zero out the entire row efficiently.
+        std::fill(gameBoard[target_row], gameBoard[target_row] + BOARD_WIDTH, 0);
         target_row--;
     }
 
+
+    // 2. Scoring Update
     if (lines_cleared_count > 0) {
+        // Simple scoring: 10 points per line cleared
+        score += 10 * lines_cleared_count;
+        linesCleared += lines_cleared_count;
 
-        Score += 10 * lines_cleared_count;
-        LinesCleared += lines_cleared_count;
-
-        if (LinesCleared / 10 > Level) {
-            Level = LinesCleared / 10;
-
-            long long new_fall_rate = FALL_RATE_MS - (Level * 100);
+        // --- LEVEL LOGIC IMPLEMENTATION ---
+        if (linesCleared / 10 > level) {
+            level = linesCleared / 10;
+            // Use 'auto' for cleaner type deduction
+            auto new_fall_rate = FALL_RATE_MS - (level * 100);
 
             if (new_fall_rate < 100) {
                 new_fall_rate = 100;
             }
-            TimeUntilNextFall = new_fall_rate;
+
+            timeUntilNextFall = new_fall_rate;
         }
     }
-    CurrentPieceId = NextPieceId;
-    CopyActivePiece(CurrentPieceId);
 
-    NextPieceId = GetRandomPieceID();
+    // 3. Spawn the Next Piece
+    currentPieceId = nextPieceId;
+    copyActivePiece(currentPieceId);
 
-    CurrentY = -2;
-    CurrentX = (BOARD_WIDTH / 2) - 2;
+    nextPieceId = getRandomPieceID();
 
+    currentY = -2;
+    currentX = (BOARD_WIDTH / 2) - 2;
 
-    if (CheckCollision(CurrentY, CurrentX)) {
+    if (checkCollision(currentY, currentX)) {
         bGameOver = true;
     }
-    bLineClearing = false;
-    ClearedLines.clear();
-}
 
-/**
- * @brief Draws the initial start screen logo and instructions.
- */
-void DrawLogo() {
-    cout << endl << endl << endl;
-    cout << "   ======  ======  ======  ======  ======  ======" << endl;
-    cout << "     ||    ||        ||    ||  ||    ||    ||" << endl;
-    cout << "     ||    ======    ||    ======    ||    ======" << endl;
-    cout << "     ||    ||        ||    || \\\\     ||        ||" << endl;
-    cout << "     ||    ======    ||    ||  \\\\  ======  ======" << endl;
-    cout << endl <<"                            MADE USING MODERN C++" << endl;
-    cout << endl << endl;
-    cout << "   CONTROLS:" << endl;
-    cout << "       A: LEFT" << endl;
-    cout << "       D: RIGHT" << endl;
-    cout << "       W: ROTATE" << endl;; // Note: Double semicolon here, but it's harmless.
-    cout << "       S: SOFT DROP" << endl;
-    cout << "       SPACE: HARD DROP" << endl;
-    cout << endl << "   PRESS ANY KEY TO START..." << endl;
+    // 4. Reset flow control flags
+    bLineClearing = false;
+    clearedLines.clear();
 }

@@ -1,49 +1,75 @@
-//
-// Created by ajays on 19-10-2025.
-//
-// This file holds all the shared variables and function prototypes
-
-#ifndef TETRISGAME_H
-#define TETRISGAME_H
+#pragma once
 
 #include <vector>
+#include <random>
+#include <chrono>
 
-// --- Game Board Dimensions ---
-constexpr int BOARD_WIDTH  = 10; // 10 columns wide
-constexpr int BOARD_HEIGHT = 20; // 20 rows tall
-extern int GAME_BOARD[BOARD_HEIGHT][BOARD_WIDTH]; // The actual grid where pieces are locked
+// Define board dimensions
+const int BOARD_WIDTH = 10;
+const int BOARD_HEIGHT = 20;
+const int NUM_PIECES = 7;
+const long long FALL_RATE_MS = 1000; // Base fall rate in milliseconds
 
-// --- Timing and Speed Settings ---
-constexpr long long FALL_RATE_MS    = 1000; // Time (ms) before a piece automatically falls one row
-constexpr long long INPUT_REPEAT_MS = 50;   // Delay (ms) for key repetition (A/D/S)
-extern long long TimeUntilNextFall;         // Countdown for the next auto-fall
-extern long long TimeUntilNextMove;         // Countdown for the next repeated input movement
+// Modern C++: Use enum class for type safety
+enum class PieceType {
+    I = 0, J, L, O, S, T, Z
+};
 
-// --- Current Piece State ---
-extern int CurrentY;              // Vertical position of the active piece (Y-coordinate)
-extern int CurrentX;              // Horizontal position of the active piece (X-coordinate)
-extern int CurrentPieceId;        // ID (0-6) of the piece currently being controlled
-extern int RotationState;         // Current rotation state (0-3)
-extern int ActivePiece[4][4];     // The 4x4 array representing the current piece's shape
+class TetrisGame {
+public:
+    // --- Constructor and Public Accessors ---
+    TetrisGame();
+    long long getFallRate() const { return timeUntilNextFall; }
+    int getScore() const { return score; }
+    int getLevel() const { return level; }
+    int getLinesCleared() const { return linesCleared; }
+    bool isLineClearing() const { return bLineClearing; }
 
-// --- Next Piece, Score, and Level ---
-extern int NextPieceId;           // ID of the piece coming up next
-extern int Score;
-extern int LinesCleared;
-extern int Level;
+    // --- Core Game Loop Methods ---
+    void drawScreen();
+    void rotatePiece();
+    bool movePiece(int dx, int dy);
 
-// --- Line Clearing Flow Control ---
-extern bool bLineClearing;                   // Flag: true when a line has been cleared and the game is animating/pausing
-extern std::vector<int> ClearedLines;        // Stores the row indices of lines that need to be deleted
+    // FIX: Added the missing hardDrop declaration
+    void hardDrop(bool &bGameOver);
 
-// --- Function Prototypes (What the game can do) ---
-void DrawLogo();                             // Shows the title screen
-void DrawScreen();                           // Redraws the entire console game board and side panel
-bool CheckCollision(int n_y, int n_x);       // Checks if a piece at (n_y, n_x) conflicts with the board or walls
-void RotatePiece();                          // Rotates the active piece, using Wall Kick rules
-int GetRandomPieceID();                      // Gets a random piece ID (0-6)
-void CopyActivePiece(int pieceID);           // Loads a new piece shape into ActivePiece
-void LockPieceAndContinueGame(bool & bGameOver); // Locks the current piece, checks for line clears, and spawns next piece
-void PerformLineDeletionAndScoring(bool & bGameOver); // Deletes cleared lines, scores points, and spawns the next piece
+    void lockPieceAndContinueGame(bool &bGameOver);
+    void performLineDeletionAndScoring(bool &bGameOver);
 
-#endif // TETRISGAME_H
+private:
+    // --- Game State ---
+    int gameBoard[BOARD_HEIGHT][BOARD_WIDTH] {};
+    int activePiece[4][4] {};
+
+    // Current piece position and rotation
+    int currentX = (BOARD_WIDTH / 2) - 2;
+    int currentY = -2;
+    int rotationState = 0; // 0, 1, 2, 3
+
+    PieceType currentPieceId;
+    PieceType nextPieceId;
+
+    // Scoring and Level
+    int score = 0;
+    int level = 0;
+    int linesCleared = 0;
+    long long timeUntilNextFall = FALL_RATE_MS;
+    bool bLineClearing = false;
+
+    // STL containers for line clearing and randomizer
+    std::vector<int> clearedLines;
+    std::vector<PieceType> pieceBag; // 7-Bag randomizer
+
+    // Modern C++: Random number generator engine
+    std::mt19937 randomEngine;
+
+    // --- Static Piece Data ---
+    static const int AllShapes[NUM_PIECES][4][4];
+    static const int WallKickTests[5][2];
+
+    // --- Private Helper Methods ---
+    bool checkCollision(int n_y, int n_x);
+    void copyActivePiece(const PieceType pieceID);
+    PieceType getRandomPieceID();
+    void shuffleBag();
+};

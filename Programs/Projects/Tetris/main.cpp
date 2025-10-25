@@ -1,143 +1,106 @@
 #include "tetrisGame.h"
-#include <chrono>
-#include <thread>
-#include <conio.h>
 #include <iostream>
-#include <cstdlib>
-#include <ctime>
+#include <chrono>       // For game timing
+#include <thread>       // For sleep function
+#include <conio.h>      // For _kbhit() and _getch() (non-blocking console input)
 
+using namespace std::chrono_literals; // Enables the use of 100ms, 10ms, etc.
 using std::cout;
 using std::endl;
-using Clock = std::chrono::high_resolution_clock;
 
+/**
+ * @brief The main function runs the Tetris game loop.
+ * It handles input, game timing (fall rate), drawing, and game state transitions.
+ */
 int main() {
-    // Seed the random number generator using the current time, so we get different pieces each run.
-    srand(time(0));
+    // Instantiate the TetrisGame object, demonstrating Object-Oriented approach (OOP)
+    TetrisGame game;
+    bool bGameOver = false;
 
-    bool bGameStarted {false};
-    bool bGameOver {false};
+    // Use C++ <chrono> for high-resolution timing
+    auto last_fall_time = std::chrono::steady_clock::now();
 
-    // --- Game Initialization ---
-    // Clear the entire board to start (0 means empty).
-    for (int y{0}; y < BOARD_HEIGHT; ++y) {
-        for (int x{0}; x < BOARD_WIDTH; ++x) {
-            GAME_BOARD[y][x] = 0;
-        }
-    }
+    // Set up initial draw before the loop starts
+    game.drawScreen();
 
-    // Set up the first two pieces.
-    CurrentPieceId = GetRandomPieceID();
-    CopyActivePiece(CurrentPieceId);
-    NextPieceId = GetRandomPieceID();
-
-    // Spawn the piece: -2 gives us a crucial buffer of two rows above the visible board.
-    // This prevents a Game Over immediately when the stack reaches the top visible row (y=0).
-    CurrentY = -2;
-    CurrentX = (BOARD_WIDTH / 2) - 2;
-
-    // --- Pre-Game Loop (Logo Screen) ---
-    while (!bGameStarted) {
-        system("cls");
-        DrawLogo(); // Display the title and instructions
-
-        if (_kbhit()) {
-            _getch(); // Read the key press
-            bGameStarted = true;
-        }
-        // Give the CPU a break so it doesn't run at 100% just to wait for a keypress.
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-
-    // --- Main Game Loop Setup ---
-    DrawScreen();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Short pause before starting
-    auto startTime = Clock::now(); // Start the game clock
-
-    // --- Main Game Loop ---
     while (!bGameOver) {
-        // 1. Handle Line Clearing Animation
-        // If a line was cleared in the previous frame, we pause the game for a moment to
-        // show the blink animation before actually deleting the lines.
-        if (bLineClearing) {
-            for (int i = 0; i < 4; ++i) {
-                DrawScreen();
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-            PerformLineDeletionAndScoring(bGameOver);
-            continue; // Skip the rest of the loop to immediately check for the next frame
-        }
 
-        // 2. Calculate Delta Time (Time passed since the last frame)
-        auto currentTime = Clock::now();
-        // Calculate milliseconds passed since the last loop iteration
-        long long deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count();
-        startTime = currentTime; // Reset the clock for the next frame
-
-        // Update the input timer to control how fast keys can repeat.
-        TimeUntilNextMove -= deltaTime;
-
-        // 3. Handle User Input
+        // --- 1. HANDLE USER INPUT ---
         if (_kbhit()) {
-            char key = _getch();
+            // Read the character without blocking the thread
+            char input = _getch();
 
-            if (key == ' ' || key == 'w') {
-                if (key == ' ') {
-                    // Hard Drop: Move the piece down instantly until collision.
-                    while (CheckCollision(CurrentY + 1, CurrentX) == false) {
-                        ++CurrentY;
+            switch (tolower(input)) {
+                case 'a': // Move Left
+                    game.movePiece(-1, 0);
+                    break;
+                case 'd': // Move Right
+                    game.movePiece(1, 0);
+                    break;
+                case 's': // Soft Drop (Move Down Faster)
+                    // Allows the piece to move down one step instantly
+                    if (!game.movePiece(0, 1)) {
+                        // If soft drop collides, lock the piece immediately
+                        game.lockPieceAndContinueGame(bGameOver);
                     }
-                    DrawScreen(); // Draw the dropped piece immediately
-                    LockPieceAndContinueGame(bGameOver); // Lock the piece and spawn the next
-                }
-                if (key == 'w') {
-                    // Rotate the piece if possible (W key)
-                    RotatePiece();
-                }
-            }
-            else if (TimeUntilNextMove <= 0) {
-                // Handle Left, Right, Soft Drop
-                bool moved = false;
-                if (key == 'a' && CheckCollision(CurrentY, CurrentX - 1) == false) {
-                    --CurrentX; moved = true;
-                } else if (key == 'd' && CheckCollision(CurrentY, CurrentX + 1) == false) {
-                    ++CurrentX; moved = true;
-                } else if (key == 's' && CheckCollision(CurrentY + 1, CurrentX) == false) {
-                    ++CurrentY; moved = true;
-                }
-
-                if (moved) {
-                    // Reset the repeat timer if a successful move was made.
-                    TimeUntilNextMove = INPUT_REPEAT_MS;
-                }
+                    break;
+                case 'w': // Rotate Piece
+                    game.rotatePiece();
+                    break;
+                case ' ': // Hard Drop (Instantly drops and locks the piece)
+                    // Calls the new hardDrop logic
+                    game.hardDrop(bGameOver);
+                    break;
+                case 'q': // Quit Game
+                    bGameOver = true;
+                    break;
             }
         }
 
-        // 4. Automatic Fall Logic
-        TimeUntilNextFall -= deltaTime;
+        // --- 2. HANDLE AUTOMATIC FALL / GAME TIMING ---
+        auto now = std::chrono::steady_clock::now();
+        // Calculate the time elapsed since the last automatic fall
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_fall_time);
 
-        if (TimeUntilNextFall <= 0) {
-            int ny = CurrentY + 1; // Try to move down one row
+        // Check if enough time has passed based on the current level's fall rate
+        if (elapsed.count() >= game.getFallRate()) {
 
-            if (CheckCollision(ny, CurrentX) == false) {
-                CurrentY = ny; // Move is safe, update position
-            } else {
-                // Collision detected: lock the piece and check for line clears/game over.
-                LockPieceAndContinueGame(bGameOver);
+            // Attempt to move the piece down by one unit
+            if (!game.movePiece(0, 1)) {
+                // If the move failed (collision at the bottom/with another block)
+                game.lockPieceAndContinueGame(bGameOver);
             }
-            TimeUntilNextFall = FALL_RATE_MS; // Reset the fall timer
+            last_fall_time = now; // Reset the fall timer
         }
 
-        // 5. Draw and Throttle CPU Usage
-        DrawScreen();
-        // Small sleep to prevent the loop from consuming 100% CPU when waiting for input/time.
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
+        // --- 3. HANDLE LINE CLEARING AND ANIMATION ---
+        if (game.isLineClearing()) {
+            // Pause execution briefly (150ms) to show the line blinking animation
+            std::this_thread::sleep_for(150ms);
+            // Perform the deletion, shifting, and score update
+            game.performLineDeletionAndScoring(bGameOver);
+        }
 
-    // --- Game Over Screen ---
-    cout << endl << "  G A M E   O V E R !" << endl;
-    cout << "  Final Score: " << Score << endl;
+        // --- 4. REDRAW SCREEN ---
+        // Redraw the screen after input, movement, or game state changes
+        game.drawScreen();
 
-    cout << "  Press any key to exit...";
+        // Pause briefly to keep the loop rate smooth and CPU usage low (approx 100 FPS cap)
+        std::this_thread::sleep_for(10ms);
+    } // End of game loop
+
+    // --- GAME OVER SEQUENCE ---
+    system("cls");
+    cout << "\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+    cout << "!!!       G A M E   O V E R       !!!" << endl;
+    cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+    cout << "Final Score: " << game.getScore() << endl;
+    cout << "Lines Cleared: " << game.getLinesCleared() << endl;
+    cout << "Final Level: " << game.getLevel() << endl;
+
+    // Wait for user confirmation before closing the console
+    cout << "\nPress any key to exit...";
     _getch();
+
     return 0;
 }
